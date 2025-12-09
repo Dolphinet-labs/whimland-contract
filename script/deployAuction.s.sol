@@ -17,29 +17,40 @@ contract DeployerCpChainBridge is Script {
     NFTAuction public nftAuctionImplementation;
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY_WHIM");
         address deployerAddress = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
 
         emptyContract = new EmptyContract();
 
-        TransparentUpgradeableProxy proxyAuction =
-            new TransparentUpgradeableProxy(address(emptyContract), deployerAddress, "");
+        TransparentUpgradeableProxy proxyAuction = new TransparentUpgradeableProxy(
+                address(emptyContract),
+                deployerAddress,
+                ""
+            );
         nftAuction = NFTAuction(payable(address(proxyAuction)));
         nftAuctionImplementation = new NFTAuction();
-        nftAuctionProxyAdmin = ProxyAdmin(getProxyAdminAddress(address(proxyAuction)));
+        nftAuctionProxyAdmin = ProxyAdmin(
+            getProxyAdminAddress(address(proxyAuction))
+        );
 
         nftAuctionProxyAdmin.upgradeAndCall(
             ITransparentUpgradeableProxy(address(nftAuction)),
             address(nftAuctionImplementation),
-            abi.encodeWithSelector(NFTAuction.initialize.selector, deployerAddress, 500)
+            abi.encodeWithSelector(
+                NFTAuction.initialize.selector,
+                deployerAddress,
+                500
+            )
         );
 
         console.log("deploy proxyAuction:", address(proxyAuction));
     }
 
-    function getProxyAdminAddress(address proxy) internal view returns (address) {
+    function getProxyAdminAddress(
+        address proxy
+    ) internal view returns (address) {
         address CHEATCODE_ADDRESS = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
         Vm vm = Vm(CHEATCODE_ADDRESS);
 
