@@ -16,7 +16,7 @@ contract DeployerCpChainBridge is Script {
     NFTManager public nftManagerImplementation;
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY_WHIM");
         address deployerAddress = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
@@ -60,14 +60,14 @@ contract DeployerCpChainBridge is Script {
             usageLimit: 10
         });
         uint256 token_id = nftManager.mintMaster(
-            address(0x0b4b5B93AaeC06Bb4c9a56130ffc2B736ac27B79),
+            address(0x2aa76c12368Bc8aEF4190400Ef4Af19fd0b4247c),
             nftMetadata
         );
         console.log("Minted Master NFT with token ID:", token_id);
 
         // mint print editions for the master NFT
         nftManager.mintPrintEdition(
-            address(0x0b4b5B93AaeC06Bb4c9a56130ffc2B736ac27B79),
+            address(0x2aa76c12368Bc8aEF4190400Ef4Af19fd0b4247c),
             token_id,
             77
         );
@@ -75,7 +75,7 @@ contract DeployerCpChainBridge is Script {
 
         // set editor for the NFTManager
         nftManager.setEditer(
-            address(0x0b4b5B93AaeC06Bb4c9a56130ffc2B736ac27B79),
+            address(0x2aa76c12368Bc8aEF4190400Ef4Af19fd0b4247c),
             true,
             0
         );

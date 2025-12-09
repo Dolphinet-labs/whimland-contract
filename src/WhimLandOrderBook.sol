@@ -94,13 +94,15 @@ contract WhimLandOrderBook is
         uint128 newProtocolShare,
         address newVault,
         string memory EIP712Name,
-        string memory EIP712Version
+        string memory EIP712Version,
+        address owner
     ) public initializer {
         __WhimLandOrderBook_init(
             newProtocolShare,
             newVault,
             EIP712Name,
-            EIP712Version
+            EIP712Version,
+            owner
         );
     }
 
@@ -108,13 +110,15 @@ contract WhimLandOrderBook is
         uint128 newProtocolShare,
         address newVault,
         string memory EIP712Name,
-        string memory EIP712Version
+        string memory EIP712Version,
+        address _owner
     ) internal onlyInitializing {
         __WhimLandOrderBook_init_unchained(
             newProtocolShare,
             newVault,
             EIP712Name,
-            EIP712Version
+            EIP712Version,
+            _owner
         );
     }
 
@@ -122,7 +126,8 @@ contract WhimLandOrderBook is
         uint128 newProtocolShare,
         address newVault,
         string memory EIP712Name,
-        string memory EIP712Version
+        string memory EIP712Version,
+        address _owner
     ) internal onlyInitializing {
         __Context_init();
         __Ownable_init(_msgSender());
@@ -134,6 +139,7 @@ contract WhimLandOrderBook is
         __OrderValidator_init(EIP712Name, EIP712Version);
 
         setVault(newVault);
+        transferOwnership(_owner);
     }
 
     /**

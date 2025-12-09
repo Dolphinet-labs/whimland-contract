@@ -30,8 +30,12 @@ contract WhimLandVault is IWhimLandVault, OwnableUpgradeable, IERC721Receiver {
         _disableInitializers();
     }
 
-    function initialize(address _owner) public initializer {
+    function initialize(
+        address _owner,
+        address newOrderBook
+    ) public initializer {
         __Ownable_init(_owner);
+        orderBook = newOrderBook;
     }
 
     function setOrderBook(address newOrderBook) public onlyOwner {
