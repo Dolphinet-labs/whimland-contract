@@ -10,6 +10,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 // import "@openzeppelin/contracts-upgradeable/token/common/ERC2981Upgradeable.sol";
 
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
@@ -25,6 +26,7 @@ contract NFTManager is
     ERC721BurnableUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
+    ERC721EnumerableUpgradeable,
     PausableUpgradeable
 {
     using Strings for uint256;
@@ -121,6 +123,20 @@ contract NFTManager is
             isEditer[msg.sender][_masterId] || msg.sender == owner(),
             "No Access to eidt"
         );
+    }
+
+    function getTokenIdTraits(
+        uint256 tokenId
+    )
+        external
+        view
+        returns (bool master, uint256 masterId, uint256 printNumber)
+    {
+        _requireOwned(tokenId);
+        master = isMaster[tokenId];
+        masterId = fromMaster[tokenId];
+        printNumber = printEditionNumber[tokenId];
+        return (master, masterId, printNumber);
     }
 
     constructor() {
@@ -708,6 +724,24 @@ contract NFTManager is
     //         data
     //     );
     // }
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    )
+        internal
+        override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
+        returns (address)
+    {
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(
+        address account,
+        uint128 amount
+    ) internal override(ERC721Upgradeable, ERC721EnumerableUpgradeable) {
+        super._increaseBalance(account, amount);
+    }
 
     // ===================== 支持接口 =====================
     function supportsInterface(
@@ -716,11 +750,17 @@ contract NFTManager is
         public
         view
         virtual
-        override(ERC721Upgradeable, ERC721URIStorageUpgradeable)
+        override(
+            ERC721Upgradeable,
+            ERC721EnumerableUpgradeable,
+            ERC721URIStorageUpgradeable
+        )
         returns (bool)
     {
         return
             interfaceId == type(IERC2981).interfaceId ||
             super.supportsInterface(interfaceId);
     }
+
+    uint256[45] private __gap;
 }
