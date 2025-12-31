@@ -47,6 +47,7 @@ contract NFTManager is
     mapping(uint256 => uint256) public fromMaster; // Print edition 来源的 Master ID
     mapping(address => bool) public isWhiteListed; // 白名单地址---允许铸造权限
     mapping(address => mapping(uint256 => bool)) public isEditer; // 核销权限地址
+    mapping(address => mapping(uint256 => bool)) public isChecker; // 核销权限地址
 
     // Metadata
     struct NFTMetadata {
@@ -586,10 +587,14 @@ contract NFTManager is
     }
 
     // ====================== 核销使用次数, 必须tokenId的拥有者调用 =====================
-    function useNFT(
-        uint256 tokenId
-    ) public nonReentrant onlyEditer(tokenId) whenNotPaused {
+    function useNFT(uint256 tokenId) public nonReentrant whenNotPaused {
         _requireOwned(tokenId);
+        require(
+            msg.sender == owner() ||
+                isEditer[msg.sender][fromMaster[tokenId]] ||
+                isChecker[msg.sender][fromMaster[tokenId]],
+            "Not authorized"
+        );
         require(remainingUses[tokenId] > 0, "No remaining uses");
         remainingUses[tokenId]--;
 
@@ -634,7 +639,7 @@ contract NFTManager is
         metadata[tokenId].royaltyBps = royaltyBps;
     }
 
-    // ==================== white list =====================
+    // ===================== white list =====================
     function setWhiteList(address operator, bool approved) public onlyOwner {
         isWhiteListed[operator] = approved;
     }
@@ -645,6 +650,14 @@ contract NFTManager is
         uint256 masterId
     ) public onlyOwner {
         isEditer[operator][masterId] = approved;
+    }
+
+    function setChecker(
+        address operator,
+        bool approved,
+        uint256 masterId
+    ) public onlyEditer(masterId) {
+        isChecker[operator][masterId] = approved;
     }
 
     function setVrfPod(address _vrfPod) external onlyOwner {
