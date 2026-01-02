@@ -16,7 +16,23 @@ contract DeployerCpChainBridge is Script {
     NFTManager public nftManagerImplementation;
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY_WHIM");
+        // Read private key as string and add 0x prefix if needed
+        string memory privateKeyStr = vm.envOr("PRIVATE_KEY_WHIM", string(""));
+        require(bytes(privateKeyStr).length > 0, "PRIVATE_KEY_WHIM not set");
+        
+        // Check if already has 0x prefix, if not add it
+        bytes memory keyBytes = bytes(privateKeyStr);
+        string memory keyToParse;
+        if (keyBytes.length >= 2 && keyBytes[0] == '0' && (keyBytes[1] == 'x' || keyBytes[1] == 'X')) {
+            // Already has 0x prefix
+            keyToParse = privateKeyStr;
+        } else {
+            // Add 0x prefix
+            keyToParse = string.concat("0x", privateKeyStr);
+        }
+        
+        // Parse as hex string (vm.parseUint automatically detects hex if 0x prefix is present)
+        uint256 deployerPrivateKey = vm.parseUint(keyToParse);
         address deployerAddress = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
@@ -39,10 +55,10 @@ contract DeployerCpChainBridge is Script {
             address(nftManagerImplementation),
             abi.encodeWithSelector(
                 NFTManager.initialize.selector,
-                "Whimland_NFT",
-                "whim",
-                100,
-                "https://whimlandnft.com/api/v1/nft/{id}",
+                "Lamei Valley",
+                "LMV",
+                type(uint256).max,
+                "https://whimlandnft.com/api/v1/nft/LMV/{id}",
                 deployerAddress,
                 deployerAddress
             )
@@ -73,10 +89,10 @@ contract DeployerCpChainBridge is Script {
         nftManager.mintPrintEdition(
             address(0x2aa76c12368Bc8aEF4190400Ef4Af19fd0b4247c),
             token_id,
-            77,
+            5,
             ""
         );
-        console.log("Minted #77 Print Editions for Master NFT ID:", token_id);
+        console.log("Minted #5 Print Editions for Master NFT ID:", token_id);
 
         // set editor for the NFTManager
         nftManager.setEditer(

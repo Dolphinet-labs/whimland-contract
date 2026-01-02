@@ -22,7 +22,7 @@
 
 ---
 
-## 二、DolPhinnet（旧）
+## 二、DolPhinne
 
 ### Auction
 
@@ -32,13 +32,6 @@
 
 - Vault (Proxy): 0x38Aae48a1236CC9B12dc9eFbcCd95B535CD117A6
 - OrderBook (Proxy): 0x0C62111cdb7e245CF62f6B8b0ec2100DB4c39C29
-
-### NFTManager（多版本）
-
-- Proxy: 0xCDcA402f519a116653eA2744B34fa92876ACC1Fc
-- Impl: 0xF4e9b1FC3169F64D40c13E7e4dbAA9DED24d1c5C
-- Proxy: 0x6cfD72ce63f617a4Fa5725a5058D63576F3029eE (NFT manager)
-- Impl: 0x5476E2B3B4F828fb6DdB7DEE358CcdE98F95afD2
 
 ---
 
@@ -69,4 +62,18 @@
 
 ---
 
-# 文档完毕
+## 四、DOL 主网（Dolphinet Mainnet - Chain ID: 1520）
+
+### NFTManager
+
+- Proxy NFTManager: 0x332D717949FA0008F6c3538C48394B9d3E2cD69a
+- Implementation NFTManager: 0xEE67A397BE3771ab155F02ce2e1F6eaa4b31ea34
+- ProxyAdmin: 0x2ea726070ed3677FE9E85d907887757CB5BeA2e6
+- EmptyContract: 0x6D60C0B924c1eb2e625318aaE1E96d8682d403e8
+
+**部署信息：**
+- 合约名称: Lamei Valley
+- 合约符号: LMV
+- 最大供应量: 无限制
+- Base URI: https://whimlandnft.com/api/v1/nft/LMV/{id}
+---
