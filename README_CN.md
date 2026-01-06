@@ -22,7 +22,9 @@ WhimLand 是一个基于区块链技术打造的全球泛文娱商品交易平�
 - [合约功能](#-合约功能)
 - [技术架构](#-技术架构)
 - [项目结构](#-项目结构)
+- [文档入口](#-文档入口)
 - [开发指南](#-开发指南)
+- [部署（Foundry Scripts）](#-部署foundry-scripts)
 - [测试](#-测试)
 - [安全考虑](#-安全考虑)
 - [贡献](#-贡献)
@@ -148,6 +150,15 @@ whimland-contract/
 
 ---
 
+## 📚 文档入口
+
+- **合约接口文档（NFTManager / OrderBook / Auction）**：`whimland_contract_api.md`
+- **最新部署地址（测试网）**：`whimland_deploy_latest_v2.md`
+
+> 说明：`broadcast/` 目录保存了 Foundry script 的执行记录（按 chain id 归档，包含部署地址与交易信息）。
+
+---
+
 ## 🛠️ 开发指南
 
 ### 前置要求
@@ -167,15 +178,17 @@ foundryup
 ### 克隆项目
 
 ```bash
-git clone <repository-url>
+git clone <repository-url> --recurse-submodules
 cd whimland-contract
 ```
 
-### 安装依赖
+### 初始化 / 更新子模块
 
 ```bash
-forge install
+git submodule update --init --recursive
 ```
+
+> 本仓库在 `lib/` 下使用了 git submodule（OpenZeppelin、forge-std 等）。如果克隆时没加 `--recurse-submodules`，请先执行上面的命令再 `forge build`。
 
 ### 构建项目
 
@@ -213,6 +226,64 @@ anvil
 # 在特定端口启动
 anvil --port 8545
 ```
+
+---
+
+## 🚢 部署（Foundry Scripts）
+
+部署脚本位于 `script/`，执行记录会写入 `broadcast/`。
+
+### 常用环境变量
+
+- **RPC**：`DOL_TESTNET_RPC_URL`（示例：Dolphin Node Testnet RPC）
+- **部署私钥**：`PRIVATE_KEY_WHIM`
+
+PowerShell 示例：
+
+```powershell
+$env:DOL_TESTNET_RPC_URL="https://..."
+$env:PRIVATE_KEY_WHIM="0x..."
+```
+
+### 部署 WhimLand（Vault + OrderBook proxies）
+
+```bash
+forge script script/deployWhimLand.s.sol:DeployerCpChainBridge \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### 部署 Auction（proxy + implementation）
+
+```bash
+forge script script/deployAuction.s.sol:DeployerCpChainBridge \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### 部署 NFTManager（proxy + implementation）
+
+```bash
+forge script script/deployNFTManager.s.sol:DeployerCpChainBridge \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### 升级/更新脚本注意事项
+
+部分脚本内含 **硬编码的 Proxy 地址常量**；如果你要在不同网络执行，需要先修改地址常量：
+
+- `script/updateWhimLandOrderBook.s.sol`（升级 OrderBook implementation）
+- `script/upgradeNFTManager.s.sol`（升级 NFTManager implementation）
 
 ---
 
