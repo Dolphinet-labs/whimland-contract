@@ -22,7 +22,9 @@ This repository contains the core smart contract implementation of the WhimLand 
 - [Contract Features](#-contract-features)
 - [Technical Architecture](#-technical-architecture)
 - [Project Structure](#-project-structure)
+- [Docs](#-docs)
 - [Getting Started](#-getting-started)
+- [Deployment (Foundry Scripts)](#-deployment-foundry-scripts)
 - [Testing](#-testing)
 - [Security Considerations](#-security-considerations)
 - [Contributing](#-contributing)
@@ -148,6 +150,15 @@ whimland-contract/
 
 ---
 
+## 📚 Docs
+
+- **Contract API (NFTManager / OrderBook / Auction)**: `whimland_contract_api.md`
+- **Latest deployment addresses (testnets)**: `whimland_deploy_latest_v2.md`
+
+> Note: The `broadcast/` directory contains Foundry script execution records (including deployed addresses per chain id).
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -168,15 +179,17 @@ foundryup
 2. **Clone the repository**
 
 ```bash
-git clone <repository-url>
+git clone <repository-url> --recurse-submodules
 cd whimland-contract
 ```
 
-3. **Install dependencies**
+3. **Init / update submodules**
 
 ```bash
-forge install
+git submodule update --init --recursive
 ```
+
+> This repository uses git submodules under `lib/` (OpenZeppelin, forge-std, etc.). If you cloned without `--recurse-submodules`, run the command above before `forge build`.
 
 ### Building
 
@@ -199,6 +212,64 @@ Start a local Anvil node for development:
 ```bash
 anvil
 ```
+
+---
+
+## 🚢 Deployment (Foundry Scripts)
+
+Deployment scripts live in `script/` and write execution records to `broadcast/`.
+
+### Common environment variables
+
+- **RPC**: `DOL_TESTNET_RPC_URL` (example: Dolphin Node Testnet RPC)
+- **Deployer key**: `PRIVATE_KEY_WHIM`
+
+PowerShell example:
+
+```powershell
+$env:DOL_TESTNET_RPC_URL="https://..."
+$env:PRIVATE_KEY_WHIM="0x..."
+```
+
+### Deploy WhimLand (Vault + OrderBook proxies)
+
+```bash
+forge script script/deployWhimLand.s.sol:DeployerCpChainBridge \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### Deploy Auction (proxy + implementation)
+
+```bash
+forge script script/deployAuction.s.sol:DeployerCpChainBridge \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### Deploy NFTManager (proxy + implementation)
+
+```bash
+forge script script/deployNFTManager.s.sol:DeployerCpChainBridge \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### Upgrade / update scripts
+
+Some scripts contain **hardcoded proxy addresses** (constants). Before running them on a different network, update the address constants:
+
+- `script/updateWhimLandOrderBook.s.sol` (upgrades OrderBook implementation)
+- `script/upgradeNFTManager.s.sol` (upgrades NFTManager implementation)
 
 ---
 
