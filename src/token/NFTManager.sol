@@ -568,27 +568,22 @@ contract NFTManager is
     }
 
     // ===================== 转移规则 =====================
-    function lockTransfer(uint256 tokenId) external {
+    function lockTransfer(uint256 tokenId) external onlyWhiteListed {
         _requireOwned(tokenId);
-        require(
-            msg.sender == owner() || msg.sender == ownerOf(tokenId),
-            "Not authorized"
-        );
+
         transferLocked[tokenId] = true;
     }
 
-    function unlockTransfer(uint256 tokenId) external {
+    function unlockTransfer(uint256 tokenId) external onlyWhiteListed {
         _requireOwned(tokenId);
-        require(
-            msg.sender == owner() || msg.sender == ownerOf(tokenId),
-            "Not authorized"
-        );
+
         transferLocked[tokenId] = false;
     }
 
     // ====================== 核销使用次数, 必须tokenId的拥有者调用 =====================
     function useNFT(uint256 tokenId) public nonReentrant whenNotPaused {
         _requireOwned(tokenId);
+        require(transferLocked[tokenId], "Token must be locked to use");
         require(
             msg.sender == owner() ||
                 isEditer[msg.sender][fromMaster[tokenId]] ||

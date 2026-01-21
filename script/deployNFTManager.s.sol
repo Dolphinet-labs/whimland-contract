@@ -17,6 +17,8 @@ contract DeployerCpChainBridge is Script {
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY_WHIM");
+        // uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+
         address deployerAddress = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
