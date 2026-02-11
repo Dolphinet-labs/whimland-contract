@@ -3,8 +3,6 @@
 pragma solidity ^0.8.20;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -32,7 +30,6 @@ contract NFTManager is
     PausableUpgradeable
 {
     using Strings for uint256;
-    using SafeERC20 for IERC20;
 
     // ============== Storage =====================
     uint256 public nextTokenId;
@@ -80,61 +77,7 @@ contract NFTManager is
     uint256 public pendingTail;
     mapping(uint256 => uint256) internal queue;
 
-    // ============== New Storage for Master Edition Sales =====================
-    struct MasterSale {
-        uint256 price;
-        address paymentToken; // address(0) for Native ETH
-        bool isForSale;
-    }
-    mapping(uint256 => MasterSale) public masterSales;
-
-    uint256 public platformFeeBps; // 平台手续费，单位 BP（例如 250 = 2.5%）
-    address public feeReceiver; // 手续费接收地址
-
-    // ============== New Storage for Blind Box =====================
-    struct BlindBoxCampaign {
-        uint256[] masterIds; // 候选 Master ID 列表
-        uint256 mintPerDraw; // 每次抽盲盒 mint 的数量
-        uint256 price; // 每次抽盲盒的价格
-        address paymentToken; // 付款代币地址 (address(0) 表示 ETH)
-        address creator; // 盲盒活动创建者
-        uint256 expireAt; // 过期时间戳，0 表示不自动过期
-        bool isActive; // 是否激活中
-    }
-    uint256 public nextBlindBoxId;
-    mapping(uint256 => BlindBoxCampaign) public blindBoxCampaigns;
-
     // ============== Events =====================
-    event FeeConfigUpdated(uint256 feeBps, address feeReceiver);
-    event MasterEditionListed(
-        uint256 indexed masterId,
-        uint256 price,
-        address paymentToken
-    );
-    event MasterEditionUnlisted(uint256 indexed masterId);
-    event PrintEditionPurchased(
-        uint256 indexed masterId,
-        uint256 tokenId,
-        address buyer,
-        uint256 price
-    );
-    event BlindBoxCreated(
-        uint256 indexed blindBoxId,
-        address creator,
-        uint256[] masterIds,
-        uint256 mintPerDraw,
-        uint256 price,
-        address paymentToken,
-        uint256 expireAt
-    );
-    event BlindBoxRedeemed(
-        uint256 indexed blindBoxId,
-        address buyer,
-        uint256[] tokenIds,
-        uint256[] chosenMasterIds
-    );
-    event BlindBoxCancelled(uint256 indexed blindBoxId);
-
     event Received(address indexed sender, uint256 amount);
     event MintedNFT(
         address indexed to,
@@ -472,6 +415,8 @@ contract NFTManager is
         uint256[] calldata masterIds,
         uint256 totalAmount
     ) external onlyWhiteListed whenNotPaused nonReentrant {
+        require(masterIds.length > 0, "No master IDs provided");
+
         for (uint256 i = 0; i < masterIds.length; i++) {
             require(
                 isEditer[msg.sender][masterIds[i]] || msg.sender == owner(),
@@ -479,18 +424,6 @@ contract NFTManager is
             );
         } // 检查 msg.sender 是否在所有masterId编辑权限内
 
-        _requestRandomMint(to, masterIds, totalAmount);
-    }
-
-    /**
-     * @dev 内部函数：处理 VRF 随机铸造请求的统一逻辑
-     */
-    function _requestRandomMint(
-        address to,
-        uint256[] memory masterIds,
-        uint256 totalAmount
-    ) internal {
-        require(masterIds.length > 0, "No master IDs provided");
         require(
             nextTokenId + totalAmount + reservedSupply - 1 <= maxSupply,
             "Exceeds max supply"
@@ -509,7 +442,7 @@ contract NFTManager is
 
         _enqueue(requestId);
 
-        // 请求随机数
+        // 只请求随机数，不依赖 requestId
         vrfPod.requestRandomWords(requestId, totalAmount);
 
         emit MintRequested(requestId, to, totalAmount, masterIds);
@@ -831,397 +764,5 @@ contract NFTManager is
             super.supportsInterface(interfaceId);
     }
 
-    // ===================== New Requirements Implementation =====================
-
-    /**
-     * @notice 上架 Master Edition 并设置金额和收款 Token
-     * @param masterId Master NFT 的 ID
-     * @param price 价格
-     * @param paymentToken 收款代币地址 (address(0) 表示 Native ETH)
-     */
-    function listMasterEdition(
-        uint256 masterId,
-        uint256 price,
-        address paymentToken
-    ) external {
-        require(isMaster[masterId], "Not a master edition");
-        require(ownerOf(masterId) == msg.sender, "Not the owner of master");
-
-        masterSales[masterId] = MasterSale({
-            price: price,
-            paymentToken: paymentToken,
-            isForSale: true
-        });
-
-        emit MasterEditionListed(masterId, price, paymentToken);
-    }
-
-    /**
-     * @notice 取消上架
-     */
-    function unlistMasterEdition(uint256 masterId) external {
-        require(ownerOf(masterId) == msg.sender, "Not the owner");
-        masterSales[masterId].isForSale = false;
-        emit MasterEditionUnlisted(masterId);
-    }
-
-    /**
-     * @notice 修改已上架 Master Edition 的销售信息（价格、收款代币）
-     * @param masterId Master NFT 的 ID
-     * @param newPrice 新价格
-     * @param newPaymentToken 新的收款代币地址 (address(0) 表示 Native ETH)
-     */
-    function updateMasterSale(
-        uint256 masterId,
-        uint256 newPrice,
-        address newPaymentToken
-    ) external {
-        require(ownerOf(masterId) == msg.sender, "Not the owner");
-        require(masterSales[masterId].isForSale, "Not listed for sale");
-
-        masterSales[masterId].price = newPrice;
-        masterSales[masterId].paymentToken = newPaymentToken;
-
-        emit MasterEditionListed(masterId, newPrice, newPaymentToken);
-    }
-
-    /**
-     * @notice 买家购买 Master Edition，付款并自动 Mint 印刷版
-     * @param masterId 想要购买哪个 Master 的 Print
-     */
-    function buyPrintEdition(
-        uint256 masterId
-    ) external payable nonReentrant whenNotPaused {
-        MasterSale memory sale = masterSales[masterId];
-        require(sale.isForSale, "Master edition not for sale");
-        require(nextTokenId <= maxSupply, "Exceeds max supply");
-
-        address masterOwner = ownerOf(masterId);
-
-        // 计算手续费
-        uint256 feeAmount = (sale.price * platformFeeBps) / 10000;
-        uint256 sellerAmount = sale.price - feeAmount;
-
-        // 处理付款
-        if (sale.paymentToken == address(0)) {
-            require(msg.value >= sale.price, "Insufficient ETH sent");
-            // 将手续费转给 feeReceiver
-            if (feeAmount > 0 && feeReceiver != address(0)) {
-                (bool feeSuccess, ) = payable(feeReceiver).call{
-                    value: feeAmount
-                }("");
-                require(feeSuccess, "Fee transfer failed");
-            }
-            // 将剩余款项转给 Master 拥有者
-            (bool success, ) = payable(masterOwner).call{value: sellerAmount}(
-                ""
-            );
-            require(success, "ETH transfer failed");
-            // 退回多余的 ETH
-            if (msg.value > sale.price) {
-                (bool returnSuccess, ) = payable(msg.sender).call{
-                    value: msg.value - sale.price
-                }("");
-                require(returnSuccess, "ETH return failed");
-            }
-        } else {
-            // ERC20: 手续费转给 feeReceiver
-            if (feeAmount > 0 && feeReceiver != address(0)) {
-                IERC20(sale.paymentToken).safeTransferFrom(
-                    msg.sender,
-                    feeReceiver,
-                    feeAmount
-                );
-            }
-            // ERC20: 剩余部分转给卖家
-            IERC20(sale.paymentToken).safeTransferFrom(
-                msg.sender,
-                masterOwner,
-                sellerAmount
-            );
-        }
-
-        // 自动查找下一个可用的 Print Number
-        uint256 printNumber = 1;
-        while (isPrintExist[masterId][printNumber]) {
-            printNumber++;
-        }
-
-        // 执行 Mint 逻辑 (参考 mintPrintEdition)
-        uint256 tokenId = nextTokenId++;
-        _safeMint(msg.sender, tokenId);
-
-        isMaster[tokenId] = false;
-        fromMaster[tokenId] = masterId;
-        printEditionNumber[tokenId] = printNumber;
-        isPrintExist[masterId][printNumber] = true;
-
-        // 继承 Master 的元数据
-        NFTMetadata memory masterMd = metadata[masterId];
-        metadata[tokenId] = masterMd;
-        remainingUses[tokenId] = masterMd.usageLimit;
-
-        emit MintedNFT(
-            msg.sender,
-            tokenId,
-            masterId,
-            printNumber,
-            masterMd.usageLimit
-        );
-
-        emit PrintEditionPurchased(masterId, tokenId, msg.sender, sale.price);
-    }
-
-    // ===================== Fee Config =====================
-
-    /**
-     * @notice Owner 配置平台手续费
-     * @param _feeBps 手续费比例（BP，例如 250 = 2.5%，最大 5000 = 50%）
-     * @param _feeReceiver 手续费接收地址
-     */
-    function setFeeConfig(
-        uint256 _feeBps,
-        address _feeReceiver
-    ) external onlyOwner {
-        require(_feeBps <= 5000, "Fee too high"); // 最高 50%
-        require(_feeReceiver != address(0), "Invalid fee receiver");
-        platformFeeBps = _feeBps;
-        feeReceiver = _feeReceiver;
-        emit FeeConfigUpdated(_feeBps, _feeReceiver);
-    }
-
-    // ===================== Blind Box =====================
-
-    /**
-     * @notice 创建盲盒活动
-     * @param _masterIds 候选 Master ID 列表
-     * @param _mintPerDraw 每次抽盲盒 mint 的 Print 数量
-     * @param _price 每次抽盲盒的价格
-     * @param _paymentToken 付款代币地址 (address(0) 表示 ETH)
-     * @param _expireAt 过期时间戳，传 0 表示不自动过期
-     */
-    function createBlindBox(
-        uint256[] calldata _masterIds,
-        uint256 _mintPerDraw,
-        uint256 _price,
-        address _paymentToken,
-        uint256 _expireAt
-    ) external onlyWhiteListed returns (uint256) {
-        require(_masterIds.length > 0, "No master IDs provided");
-        require(_mintPerDraw > 0, "Mint per draw must be > 0");
-        if (_expireAt != 0) {
-            require(
-                _expireAt > block.timestamp,
-                "Expire time must be in the future"
-            );
-        }
-
-        // 校验所有 masterIds 有效且调用者有编辑权限
-        for (uint256 i = 0; i < _masterIds.length; i++) {
-            require(isMaster[_masterIds[i]], "Invalid masterId");
-            require(
-                isEditer[msg.sender][_masterIds[i]] || msg.sender == owner(),
-                "No editor access for masterId"
-            );
-        }
-
-        uint256 blindBoxId = ++nextBlindBoxId;
-        blindBoxCampaigns[blindBoxId] = BlindBoxCampaign({
-            masterIds: _masterIds,
-            mintPerDraw: _mintPerDraw,
-            price: _price,
-            paymentToken: _paymentToken,
-            creator: msg.sender,
-            expireAt: _expireAt,
-            isActive: true
-        });
-
-        emit BlindBoxCreated(
-            blindBoxId,
-            msg.sender,
-            _masterIds,
-            _mintPerDraw,
-            _price,
-            _paymentToken,
-            _expireAt
-        );
-        return blindBoxId;
-    }
-
-    /**
-     * @notice 用户付款抽盲盒，自动随机 Mint Print Edition
-     * @param blindBoxId 盲盒活动 ID
-     */
-    function redeemBlindBox(
-        uint256 blindBoxId
-    ) external payable nonReentrant whenNotPaused {
-        BlindBoxCampaign storage campaign = blindBoxCampaigns[blindBoxId];
-        require(campaign.isActive, "Blind box not active");
-        if (campaign.expireAt != 0) {
-            require(block.timestamp <= campaign.expireAt, "Blind box expired");
-        }
-        require(
-            nextTokenId + campaign.mintPerDraw - 1 <= maxSupply,
-            "Exceeds max supply"
-        );
-
-        // 计算手续费
-        uint256 feeAmount = (campaign.price * platformFeeBps) / 10000;
-        uint256 sellerAmount = campaign.price - feeAmount;
-
-        // 处理付款
-        if (campaign.paymentToken == address(0)) {
-            require(msg.value >= campaign.price, "Insufficient ETH sent");
-            // 手续费转给 feeReceiver
-            if (feeAmount > 0 && feeReceiver != address(0)) {
-                (bool feeSuccess, ) = payable(feeReceiver).call{
-                    value: feeAmount
-                }("");
-                require(feeSuccess, "Fee transfer failed");
-            }
-            // 剩余款项转给创建者
-            (bool success, ) = payable(campaign.creator).call{
-                value: sellerAmount
-            }("");
-            require(success, "ETH transfer failed");
-            // 退回多余的 ETH
-            if (msg.value > campaign.price) {
-                (bool returnSuccess, ) = payable(msg.sender).call{
-                    value: msg.value - campaign.price
-                }("");
-                require(returnSuccess, "ETH return failed");
-            }
-        } else {
-            if (feeAmount > 0 && feeReceiver != address(0)) {
-                IERC20(campaign.paymentToken).safeTransferFrom(
-                    msg.sender,
-                    feeReceiver,
-                    feeAmount
-                );
-            }
-            IERC20(campaign.paymentToken).safeTransferFrom(
-                msg.sender,
-                campaign.creator,
-                sellerAmount
-            );
-        }
-
-        // 提交 VRF 随机铸造请求 (复用核心逻辑)
-        _requestRandomMint(
-            msg.sender,
-            campaign.masterIds,
-            campaign.mintPerDraw
-        );
-
-        // 注意：由于使用了 VRF，实际的 Mint 动作将在 rawFulfillRandomWords 中异步完成作业
-        // 这意味着 BlindBoxRedeemed 事件在此时无法拿到具体的 tokenIds
-        emit BlindBoxRedeemed(
-            blindBoxId,
-            msg.sender,
-            new uint256[](0),
-            campaign.masterIds
-        );
-    }
-
-    /**
-     * @notice 取消盲盒活动（创建者或 Owner 可调用）
-     * @param blindBoxId 盲盒活动 ID
-     */
-    function cancelBlindBox(uint256 blindBoxId) external {
-        BlindBoxCampaign storage campaign = blindBoxCampaigns[blindBoxId];
-        require(campaign.isActive, "Blind box not active");
-        require(
-            msg.sender == campaign.creator || msg.sender == owner(),
-            "Not authorized"
-        );
-        campaign.isActive = false;
-        emit BlindBoxCancelled(blindBoxId);
-    }
-
-    /**
-     * @notice 修改盲盒活动信息
-     * @param blindBoxId 盲盒活动 ID
-     * @param _masterIds 新的候选 Master ID 列表
-     * @param _mintPerDraw 新的每次抽盲盒 mint 的数量
-     * @param _price 新的价格
-     * @param _paymentToken 新的付款代币地址
-     * @param _expireAt 新的过期时间戳
-     * @param _isActive 是否激活
-     */
-    function updateBlindBox(
-        uint256 blindBoxId,
-        uint256[] calldata _masterIds,
-        uint256 _mintPerDraw,
-        uint256 _price,
-        address _paymentToken,
-        uint256 _expireAt,
-        bool _isActive
-    ) external {
-        BlindBoxCampaign storage campaign = blindBoxCampaigns[blindBoxId];
-        require(
-            msg.sender == campaign.creator || msg.sender == owner(),
-            "Not authorized"
-        );
-        require(_masterIds.length > 0, "No master IDs provided");
-        require(_mintPerDraw > 0, "Mint per draw must be > 0");
-
-        // 校验所有 masterIds 有效且调用者有编辑权限
-        for (uint256 i = 0; i < _masterIds.length; i++) {
-            require(isMaster[_masterIds[i]], "Invalid masterId");
-            require(
-                isEditer[msg.sender][_masterIds[i]] || msg.sender == owner(),
-                "No editor access for masterId"
-            );
-        }
-
-        campaign.masterIds = _masterIds;
-        campaign.mintPerDraw = _mintPerDraw;
-        campaign.price = _price;
-        campaign.paymentToken = _paymentToken;
-        campaign.expireAt = _expireAt;
-        campaign.isActive = _isActive;
-
-        emit BlindBoxCreated(
-            blindBoxId,
-            campaign.creator,
-            _masterIds,
-            _mintPerDraw,
-            _price,
-            _paymentToken,
-            _expireAt
-        );
-    }
-
-    /**
-     * @notice 查询盲盒活动详情
-     * @param blindBoxId 盲盒活动 ID
-     */
-    function getBlindBoxCampaign(
-        uint256 blindBoxId
-    )
-        external
-        view
-        returns (
-            uint256[] memory masterIds,
-            uint256 mintPerDraw,
-            uint256 price,
-            address paymentToken,
-            address creator,
-            uint256 expireAt,
-            bool isActive
-        )
-    {
-        BlindBoxCampaign storage c = blindBoxCampaigns[blindBoxId];
-        return (
-            c.masterIds,
-            c.mintPerDraw,
-            c.price,
-            c.paymentToken,
-            c.creator,
-            c.expireAt,
-            c.isActive
-        );
-    }
-
-    uint256[40] private __gap; // 原 45，减 5 slot (masterSales + platformFeeBps + feeReceiver + nextBlindBoxId + blindBoxCampaigns)
+    uint256[45] private __gap;
 }
