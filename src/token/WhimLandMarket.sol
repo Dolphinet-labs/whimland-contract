@@ -12,7 +12,10 @@ interface INFTManager {
 
     function ownerOf(uint256 tokenId) external view returns (address);
 
-    function isWhiteListed(address addr) external view returns (bool);
+    function checkMintPermission(
+        address operator,
+        uint256[] calldata masterIds
+    ) external view;
 
     function mintPrintEdition(
         address to,
@@ -213,10 +216,8 @@ contract WhimLandMarket is
         address _paymentToken,
         uint256 _expireAt
     ) external returns (uint256) {
-        require(
-            nftManager.isWhiteListed(msg.sender) || msg.sender == owner(),
-            "Not whitelisted"
-        );
+        // 校验调用者在 NFTManager 中的 whitelist + editer 权限
+        nftManager.checkMintPermission(msg.sender, _masterIds);
         uint256 blindBoxId = ++nextBlindBoxId;
         blindBoxCampaigns[blindBoxId] = BlindBoxCampaign({
             masterIds: _masterIds,
@@ -269,13 +270,12 @@ contract WhimLandMarket is
         uint256 _expireAt,
         bool _isActive
     ) external {
-        BlindBoxCampaign storage campaign = blindBoxCampaigns[blindBoxId];
-        require(
-            msg.sender == campaign.creator || msg.sender == owner(),
-            "Not authorized"
-        );
+        nftManager.checkMintPermission(msg.sender, _masterIds);
+
         require(_masterIds.length > 0, "No master IDs provided");
         require(_mintPerDraw > 0, "Mint per draw must be > 0");
+
+        BlindBoxCampaign storage campaign = blindBoxCampaigns[blindBoxId];
 
         // 校验所有 masterIds 有效
         for (uint256 i = 0; i < _masterIds.length; i++) {
