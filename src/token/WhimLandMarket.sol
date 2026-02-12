@@ -12,6 +12,8 @@ interface INFTManager {
 
     function ownerOf(uint256 tokenId) external view returns (address);
 
+    function isWhiteListed(address addr) external view returns (bool);
+
     function mintPrintEdition(
         address to,
         uint256 masterId,
@@ -211,6 +213,10 @@ contract WhimLandMarket is
         address _paymentToken,
         uint256 _expireAt
     ) external returns (uint256) {
+        require(
+            nftManager.isWhiteListed(msg.sender) || msg.sender == owner(),
+            "Not whitelisted"
+        );
         uint256 blindBoxId = ++nextBlindBoxId;
         blindBoxCampaigns[blindBoxId] = BlindBoxCampaign({
             masterIds: _masterIds,
