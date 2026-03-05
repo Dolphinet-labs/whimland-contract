@@ -660,6 +660,28 @@ contract NFTManager is
     }
 
     // ===================== view functions =====================
+
+    /**
+     * @notice 校验 operator 是否具备对指定 masterIds 的铸造权限
+     * @dev 复制自 mintBatchPrintEditionRandomMasters 的 onlyWhiteListed + isEditer 校验
+     *      权限不通过时直接 revert，供外部合约（如 WhimLandMarket）调用
+     */
+    function checkMintPermission(
+        address operator,
+        uint256[] calldata masterIds
+    ) external view {
+        require(
+            isWhiteListed[operator] || operator == owner(),
+            "Not whitelisted"
+        );
+        for (uint256 i = 0; i < masterIds.length; i++) {
+            require(
+                isEditer[operator][masterIds[i]] || operator == owner(),
+                "No Access to edit"
+            );
+        }
+    }
+
     function getMetadata(
         uint256 tokenId
     ) external view returns (NFTMetadata memory) {
