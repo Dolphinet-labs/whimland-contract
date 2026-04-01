@@ -580,7 +580,7 @@ contract NFTManager is
         transferLocked[tokenId] = false;
     }
 
-    // ====================== 核销使用次数, 必须tokenId的拥有者调用 =====================
+    // ====================== 核销使用次数, 必须tokenId的拥有者或者有权限的用户调用 =====================
     function useNFT(uint256 tokenId) public nonReentrant whenNotPaused {
         _requireOwned(tokenId);
         require(transferLocked[tokenId], "Token must be locked to use");
@@ -593,10 +593,10 @@ contract NFTManager is
         require(remainingUses[tokenId] > 0, "No remaining uses");
         remainingUses[tokenId]--;
 
-        // // 核销次数用完即销毁
-        // if (remainingUses[tokenId] == 0) {
-        //     burn(tokenId);
-        // }
+        // 核销次数用完即销毁
+        if (remainingUses[tokenId] == 0) {
+            _burn(tokenId);
+        }
         emit NFTUsed(tokenId, remainingUses[tokenId], block.timestamp);
     }
 
