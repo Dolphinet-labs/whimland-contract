@@ -222,6 +222,38 @@ contract NFTManager is
         nonReentrant
         returns (uint256)
     {
+        return _mintPrintEdition(to, masterId, printNumber, metadataURL, false);
+    }
+
+    /**
+     * @notice 铸造 print edition 并在同一笔交易内立即锁定转移。
+     * @dev 与先 mintPrintEdition 再 lockTransfer 等价，但原子执行，
+     *      消除 "NFT 已到用户钱包、但链上尚未 lock" 的时间窗口。
+     *      凭证类（本地生活 / 卡券）铸造必须走此函数。
+     */
+    function mintPrintEditionAndLock(
+        address to,
+        uint256 masterId,
+        uint256 printNumber,
+        string memory metadataURL
+    )
+        external
+        onlyWhiteListed
+        onlyEditer(masterId)
+        whenNotPaused
+        nonReentrant
+        returns (uint256)
+    {
+        return _mintPrintEdition(to, masterId, printNumber, metadataURL, true);
+    }
+
+    function _mintPrintEdition(
+        address to,
+        uint256 masterId,
+        uint256 printNumber,
+        string memory metadataURL,
+        bool lock
+    ) internal returns (uint256) {
         require(nextTokenId <= maxSupply, "Exceeds max supply");
         require(isMaster[masterId], "Invalid masterId");
         require(
@@ -233,15 +265,11 @@ contract NFTManager is
 
         _safeMint(to, tokenId);
 
-        // 标记为非 Master
         isMaster[tokenId] = false;
         fromMaster[tokenId] = masterId;
 
-        // 设置 Print edition 编号
         printEditionNumber[tokenId] = printNumber;
 
-        // 继承 Master 的 metadata
-        // metadata[tokenId] = metadata[masterId];
         NFTMetadata memory metadataTem = metadata[masterId];
         metadataTem.metadataURL = metadataURL;
         metadata[tokenId] = metadataTem;
@@ -249,6 +277,10 @@ contract NFTManager is
         isPrintExist[masterId][printNumber] = true;
 
         remainingUses[tokenId] = metadata[masterId].usageLimit;
+
+        if (lock) {
+            transferLocked[tokenId] = true;
+        }
 
         emit MintedNFT(
             to,
