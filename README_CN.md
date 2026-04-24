@@ -270,12 +270,36 @@ forge script script/deployAuction.s.sol:DeployerCpChainBridge \
 ### 部署 NFTManager（proxy + implementation）
 
 ```bash
-forge script script/deployNFTManager.s.sol:DeployerCpChainBridge \
+forge script script/deployNFTManager.s.sol:DeployNFTManagerAllinOneMart \
   --rpc-url $DOL_TESTNET_RPC_URL \
   --private-key $PRIVATE_KEY_WHIM \
   --broadcast --verify \
   --verifier blockscout \
   --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### 部署 WhimLandMarket（需已有 NFTManager 代理地址）
+
+将 `NFT_MANAGER_PROXY` 设为上一布步骤打印的代理地址。
+
+```bash
+NFT_MANAGER_PROXY=0x... forge script script/deployWhimLandMarket.s.sol:DeployWhimLandMarket \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### 为门店商家授予 checker（AllinOne Mart 方案）
+
+1. 编辑 `script/data/aio_checker_master_ids.json`（`masterIds` 为链上 Master 的 tokenId）。
+2. 使用 **NFTManager owner** 私钥（`NFT_MANAGER_OWNER_PRIVATE_KEY`，计划中为 `0x2162…`）执行：
+
+```bash
+NFT_MANAGER_PROXY=0x... NFT_MANAGER_OWNER_PRIVATE_KEY=0x... \
+  forge script script/configureAioMerchantChecker.s.sol:ConfigureAioMerchantChecker \
+  --rpc-url $DOL_TESTNET_RPC_URL --broadcast
 ```
 
 ### 升级/更新脚本注意事项
