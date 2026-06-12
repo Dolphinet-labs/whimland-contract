@@ -256,12 +256,36 @@ forge script script/deployAuction.s.sol:DeployerCpChainBridge \
 ### Deploy NFTManager (proxy + implementation)
 
 ```bash
-forge script script/deployNFTManager.s.sol:DeployerCpChainBridge \
+forge script script/deployNFTManager.s.sol:DeployNFTManagerAllinOneMart \
   --rpc-url $DOL_TESTNET_RPC_URL \
   --private-key $PRIVATE_KEY_WHIM \
   --broadcast --verify \
   --verifier blockscout \
   --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### Deploy WhimLandMarket (after NFTManager proxy exists)
+
+Set `NFT_MANAGER_PROXY` to the proxy address printed by the step above.
+
+```bash
+NFT_MANAGER_PROXY=0x... forge script script/deployWhimLandMarket.s.sol:DeployWhimLandMarket \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer-testnet.dolphinode.world/api/
+```
+
+### Grant merchant checker (AllinOne Mart plan)
+
+1. Edit `script/data/aio_checker_master_ids.json` (`masterIds` = on-chain master token IDs).
+2. Run with the **NFTManager owner** key (`NFT_MANAGER_OWNER_PRIVATE_KEY`, i.e. `0x2162…`).
+
+```bash
+NFT_MANAGER_PROXY=0x... NFT_MANAGER_OWNER_PRIVATE_KEY=0x... \
+  forge script script/configureAioMerchantChecker.s.sol:ConfigureAioMerchantChecker \
+  --rpc-url $DOL_TESTNET_RPC_URL --broadcast
 ```
 
 ### Upgrade / update scripts
