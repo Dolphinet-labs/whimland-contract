@@ -77,6 +77,10 @@ contract NFTManager is
     uint256 public pendingTail;
     mapping(uint256 => uint256) internal queue;
 
+    // AI 宠物系统合约（WhimPet）。appended for upgrade safety —— 占用原 __gap 槽位。
+    // 宠物逻辑全部在独立的 WhimPet 合约中，本合约只暴露最小的授权销毁入口 petBurn。
+    address public petSystem;
+
     // ============== Events =====================
     event Received(address indexed sender, uint256 amount);
     event MintedNFT(
@@ -94,6 +98,13 @@ contract NFTManager is
         uint256[] masterIds
     );
     event MintCompleted(uint256 requestId, uint256[] chosenMasterIds);
+
+    // ERC-4906 MetadataUpdate / BatchMetadataUpdate 事件继承自
+    // ERC721URIStorageUpgradeable（IERC4906），无需重复声明。
+
+    // AI 宠物事件
+    event PetBurned(uint256 indexed tokenId, address indexed previousOwner);
+    event PetSystemChanged(address indexed previousSystem, address indexed newSystem);
 
     // ============== Modifiers =====================
     modifier onlyWhiteListed() {
@@ -577,6 +588,7 @@ contract NFTManager is
         require(tokenIds.length == urls.length, "Length mismatch");
         for (uint256 i = 0; i < tokenIds.length; i++) {
             metadata[tokenIds[i]].metadataURL = urls[i];
+            emit MetadataUpdate(tokenIds[i]);
         }
     }
 
@@ -640,6 +652,30 @@ contract NFTManager is
             _burn(tokenId);
         }
         emit NFTUsed(tokenId, remainingUses[tokenId], block.timestamp);
+    }
+
+    // ===================== AI 宠物 =====================
+
+    /**
+     * @notice 设置宠物系统合约地址（WhimPet）。
+     */
+    function setPetSystem(address _petSystem) external onlyOwner {
+        emit PetSystemChanged(petSystem, _petSystem);
+        petSystem = _petSystem;
+    }
+
+    /**
+     * @notice 授权销毁：仅供 WhimPet 合约在领养/喂养时（同一笔交易内）调用。
+     * @dev _burn 走 _update 内部路径，不受 transferLocked / remainingUses 限制，
+     *      因此本地生活等永久锁定的凭证也可被消耗。归属校验由 WhimPet 在
+     *      调用前执行（ownerOf == petOwner），这里只做最小防护。
+     */
+    function petBurn(uint256 tokenId) external whenNotPaused {
+        require(msg.sender == petSystem && petSystem != address(0), "Not pet system");
+        require(!isMaster[tokenId], "Cannot burn master");
+        address previousOwner = ownerOf(tokenId);
+        _burn(tokenId);
+        emit PetBurned(tokenId, previousOwner);
     }
 
     // ===================== 内部函数 =====================
@@ -825,8 +861,9 @@ contract NFTManager is
     {
         return
             interfaceId == type(IERC2981).interfaceId ||
+            interfaceId == bytes4(0x49064906) || // ERC-4906 Metadata Update
             super.supportsInterface(interfaceId);
     }
 
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 }
