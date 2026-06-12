@@ -538,6 +538,16 @@ contract NFTManager is
         baseURI = _uri;
     }
 
+    function batchSetMetadataURL(
+        uint256[] calldata tokenIds,
+        string[] calldata urls
+    ) external onlyOwner {
+        require(tokenIds.length == urls.length, "Length mismatch");
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            metadata[tokenIds[i]].metadataURL = urls[i];
+        }
+    }
+
     function tokenURI(
         uint256 tokenId
     )
