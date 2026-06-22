@@ -277,6 +277,24 @@ NFT_MANAGER_PROXY=0x... forge script script/deployWhimLandMarket.s.sol:DeployWhi
   --verifier-url https://explorer-testnet.dolphinode.world/api/
 ```
 
+### Deploy per-merchant NFTManager (multi-tenant)
+
+Deploy a dedicated `NFTManager` proxy for one merchant. The script initializes the collection, transfers `owner()` to the platform treasury, and whitelists the proxy on OrderBook.
+
+Required env: `PRIVATE_KEY_WHIM`, `ORDERBOOK_OWNER_PRIVATE_KEY`, `NFT_COLLECTION_NAME`, `NFT_COLLECTION_SYMBOL`. Optional overrides are documented in `script/deployMerchantNFTManager.s.sol`.
+
+```bash
+export NFT_COLLECTION_NAME="My Store"
+export NFT_COLLECTION_SYMBOL="MSTORE"
+
+forge script script/deployMerchantNFTManager.s.sol:DeployMerchantNFTManager \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast -vv --slow
+```
+
+Register the deployed proxy address in your platform backend before merchants can use it in the app.
+
 ### Grant merchant checker (AllinOne Mart plan)
 
 1. Edit `script/data/aio_checker_master_ids.json` (`masterIds` = on-chain master token IDs).

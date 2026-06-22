@@ -291,6 +291,24 @@ NFT_MANAGER_PROXY=0x... forge script script/deployWhimLandMarket.s.sol:DeployWhi
   --verifier-url https://explorer-testnet.dolphinode.world/api/
 ```
 
+### 部署商家独立 NFTManager（多租户）
+
+为单个商家部署独立的 `NFTManager` 代理。脚本会初始化合集、将 `owner()` 转让给平台金库，并在 OrderBook 上加入白名单。
+
+必需环境变量：`PRIVATE_KEY_WHIM`、`ORDERBOOK_OWNER_PRIVATE_KEY`、`NFT_COLLECTION_NAME`、`NFT_COLLECTION_SYMBOL`。可选覆盖项见 `script/deployMerchantNFTManager.s.sol` 文件头注释。
+
+```bash
+export NFT_COLLECTION_NAME="My Store"
+export NFT_COLLECTION_SYMBOL="MSTORE"
+
+forge script script/deployMerchantNFTManager.s.sol:DeployMerchantNFTManager \
+  --rpc-url $DOL_TESTNET_RPC_URL \
+  --private-key $PRIVATE_KEY_WHIM \
+  --broadcast -vv --slow
+```
+
+部署完成后，需在平台后端注册代理地址，商家才能在 App 中使用。
+
 ### 为门店商家授予 checker（AllinOne Mart 方案）
 
 1. 编辑 `script/data/aio_checker_master_ids.json`（`masterIds` 为链上 Master 的 tokenId）。
