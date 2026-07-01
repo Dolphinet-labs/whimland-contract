@@ -7,20 +7,28 @@ import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
-/// @notice Batch-upgrades multiple NFTManager TransparentUpgradeableProxy instances
-///         on chain 1520 to the already-deployed new implementation at
-///         0x916498207231F5171f7BeBB312a3e81D6a7aDfE0 (which exposes
-///         mintPrintEditionAndLock + transferLocked view).
-/// Env vars required:
-///   - PRIVATE_KEY_WHIM  (hex, with or without 0x prefix) — signer for the ProxyAdmin.owner()
-///   - IMPL_ADDR         (optional) — defaults to 0x916498207231F5171f7BeBB312a3e81D6a7aDfE0
-///   - PROXIES           — comma-separated list of proxy addresses to upgrade
-contract UpgradeAllNFTManagers is Script {
-    address public constant DEFAULT_IMPL = 0x916498207231F5171f7BeBB312a3e81D6a7aDfE0;
+import {NFTManager} from "../src/token/NFTManager.sol";
+import {Chain1520Config} from "./Chain1520Config.sol";
 
+/// @notice Batch-upgrade NFTManager proxies to the WhimPet-capable implementation
+///         and configure petSystem when WHIMPET_ADDR is set (default: Chain1520Config.WHIMPET).
+///
+/// Env vars:
+///   PRIVATE_KEY_WHIM  — ProxyAdmin owner signer
+///   PROXIES           — comma-separated proxy addresses
+///   IMPL_ADDR         — (optional) defaults to Chain1520Config.NFT_MANAGER_IMPL
+///   WHIMPET_ADDR      — (optional) defaults to Chain1520Config.WHIMPET; set to address(0) to skip setPetSystem
+contract UpgradeAllNFTManagers is Script {
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY_WHIM");
-        address implAddr = vm.envOr("IMPL_ADDR", DEFAULT_IMPL);
+        address implAddr = vm.envOr(
+            "IMPL_ADDR",
+            Chain1520Config.NFT_MANAGER_IMPL
+        );
+        address whimPetAddr = vm.envOr(
+            "WHIMPET_ADDR",
+            Chain1520Config.WHIMPET
+        );
         address[] memory proxies = vm.envAddress("PROXIES", ",");
 
         require(proxies.length > 0, "PROXIES env is empty");
@@ -29,6 +37,7 @@ contract UpgradeAllNFTManagers is Script {
         address signer = vm.addr(privateKey);
         console.log("Signer:", signer);
         console.log("New implementation:", implAddr);
+        console.log("WhimPet:", whimPetAddr);
         console.log("Proxies to upgrade:", proxies.length);
 
         vm.startBroadcast(privateKey);
@@ -41,13 +50,18 @@ contract UpgradeAllNFTManagers is Script {
             console.log("--------");
             console.log("Proxy:", proxy);
             console.log("ProxyAdmin:", adminAddr);
-            console.log("ProxyAdmin.owner():", admin.owner());
 
             admin.upgradeAndCall(
                 ITransparentUpgradeableProxy(proxy),
                 implAddr,
                 ""
             );
+
+            if (whimPetAddr != address(0)) {
+                require(whimPetAddr.code.length > 0, "WHIMPET_ADDR has no code");
+                NFTManager(payable(proxy)).setPetSystem(whimPetAddr);
+                console.log("petSystem:", NFTManager(payable(proxy)).petSystem());
+            }
 
             console.log("Upgraded OK");
         }

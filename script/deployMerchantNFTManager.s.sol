@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {EmptyContract} from "./utils/EmptyContract.sol";
 import {NFTManager} from "../src/token/NFTManager.sol";
 import {WhimLandOrderBook} from "../src/WhimLandOrderBook.sol";
+import {Chain1520Config} from "./Chain1520Config.sol";
 
 /// @notice Deploy one merchant NFTManager from env vars NFT_COLLECTION_NAME / NFT_COLLECTION_SYMBOL.
 ///         After deploy: transferOwnership -> platform treasury, whitelist on OrderBook.
@@ -25,6 +26,8 @@ import {WhimLandOrderBook} from "../src/WhimLandOrderBook.sol";
 ///   ORDER_BOOK_PROXY              — OrderBook proxy on chain 1520
 ///   VRF_POD_ADDRESS               — VRF pod for mint randomness
 ///   PLATFORM_MINTER_ADDRESS       — if set, whitelisted on NFTManager before ownership transfer
+///   NFT_IMPL_ADDR                   — canonical NFTManager impl (default: Chain1520Config.NFT_MANAGER_IMPL)
+///   WHIMPET_ADDR                    — WhimPet proxy (default: Chain1520Config.WHIMPET)
 contract DeployMerchantNFTManager is Script {
     address internal constant DEFAULT_ORDER_BOOK =
         0x7eEe27eFE34d04048F7e0E4230172AF6D6E5A986;
@@ -56,6 +59,17 @@ contract DeployMerchantNFTManager is Script {
             DEFAULT_ORDER_BOOK
         );
         address vrfPod = vm.envOr("VRF_POD_ADDRESS", DEFAULT_VRF_POD);
+        address nftImplAddr = vm.envOr(
+            "NFT_IMPL_ADDR",
+            Chain1520Config.NFT_MANAGER_IMPL
+        );
+        address whimPetAddr = vm.envOr(
+            "WHIMPET_ADDR",
+            Chain1520Config.WHIMPET
+        );
+
+        require(nftImplAddr.code.length > 0, "NFT_IMPL_ADDR has no code");
+        require(whimPetAddr.code.length > 0, "WHIMPET_ADDR has no code");
 
         address deployer = vm.addr(deployKey);
         address orderBookOwner = vm.addr(orderBookKey);
@@ -67,6 +81,8 @@ contract DeployMerchantNFTManager is Script {
         console.log("VRF pod:", vrfPod);
         console.log("Name:", collectionName);
         console.log("Symbol:", collectionSymbol);
+        console.log("NFT implementation:", nftImplAddr);
+        console.log("WhimPet:", whimPetAddr);
 
         vm.startBroadcast(deployKey);
 
@@ -79,14 +95,13 @@ contract DeployMerchantNFTManager is Script {
             );
 
         NFTManager nftManager = NFTManager(payable(address(proxyNftManager)));
-        NFTManager nftManagerImplementation = new NFTManager();
         ProxyAdmin nftManagerProxyAdmin = ProxyAdmin(
             _getProxyAdminAddress(address(proxyNftManager))
         );
 
         nftManagerProxyAdmin.upgradeAndCall(
             ITransparentUpgradeableProxy(address(nftManager)),
-            address(nftManagerImplementation),
+            nftImplAddr,
             abi.encodeWithSelector(
                 NFTManager.initialize.selector,
                 collectionName,
@@ -100,7 +115,7 @@ contract DeployMerchantNFTManager is Script {
 
         address proxyAddress = address(proxyNftManager);
         console.log("proxyNftManager:", proxyAddress);
-        console.log("implementation:", address(nftManagerImplementation));
+        console.log("implementation:", nftImplAddr);
         console.log("proxyAdmin:", address(nftManagerProxyAdmin));
 
         address minter = vm.envOr("PLATFORM_MINTER_ADDRESS", address(0));
@@ -108,6 +123,9 @@ contract DeployMerchantNFTManager is Script {
             nftManager.setWhiteList(minter, true);
             console.log("Whitelisted minter:", minter);
         }
+
+        nftManager.setPetSystem(whimPetAddr);
+        console.log("petSystem:", nftManager.petSystem());
 
         nftManager.transferOwnership(newOwner);
         console.log("Ownership transferred to:", newOwner);
